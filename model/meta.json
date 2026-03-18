@@ -1,0 +1,11 @@
+{
+  "accuracy": 98.03,
+  "window": 512,
+  "step": 128,
+  "fs": 173.61,
+  "classes": [
+    "Normal",
+    "Abnormal"
+  ],
+  "framework": "pytorch"
+}

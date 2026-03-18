@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuroScan AI — EEG Classifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #080d12;
+            --surface: #0d1520;
+            --surface2: #111d2b;
+            --border: #1e3048;
+            --border2: #253d5a;
+            --text: #c8d8e8;
+            --text-dim: #5a7a9a;
+            --green: #00e5a0;
+            --green-dim: #00b07a;
+            --red: #ff4f6e;
+            --red-dim: #c03050;
+            --blue: #38bdf8;
+            --mono: 'Space Mono', monospace;
+            --sans: 'DM Sans', sans-serif;
+            --glow-g: 0 0 20px rgba(0, 229, 160, .25);
+            --glow-r: 0 0 20px rgba(255, 79, 110, .25);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 15px;
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+            opacity: .4;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(56, 189, 248, .03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, .03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        header {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 40px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(8, 13, 18, .85);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            border: 1.5px solid var(--green);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--glow-g);
+        }
+
+        .logo-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .logo-text {
+            font-family: var(--mono);
+            font-size: 14px;
+            color: var(--text);
+            letter-spacing: 0.05em;
+        }
+
+        .logo-text span {
+            color: var(--green);
+        }
+
+        .status-pill {
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-pill.online {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .status-pill.offline {
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .online .status-dot {
+            background: var(--green);
+        }
+
+        .offline .status-dot {
+            background: var(--red);
+            animation: none;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .3;
+            }
+        }
+
+        main {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .hero-eyebrow {
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: .15em;
+            color: var(--green);
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .hero h1 {
+            font-family: var(--mono);
+            font-size: clamp(28px, 5vw, 52px);
+            font-weight: 700;
+            line-height: 1.15;
+            color: #e8f4ff;
+            margin-bottom: 16px;
+        }
+
+        .hero h1 em {
+            font-style: normal;
+            color: var(--green);
+            text-shadow: var(--glow-g);
+        }
+
+        .hero p {
+            color: var(--text-dim);
+            max-width: 520px;
+            margin: 0 auto;
+            font-size: 15px;
+        }
+
+        .wave-wrap {
+            margin: 32px auto 0;
+            max-width: 600px;
+            overflow: hidden;
+            height: 60px;
+        }
+
+        .wave-svg {
+            width: 200%;
+            animation: scrollWave 8s linear infinite;
+        }
+
+        @keyframes scrollWave {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translateX(-50%);
+            }
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        @media (max-width: 700px) {
+            .cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px;
+            transition: border-color .3s;
+        }
+
+        .card:hover {
+            border-color: var(--border2);
+        }
+
+        .card-label {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+        }
+
+        .upload-card {
+            grid-column: span 2;
+        }
+
+        @media (max-width: 700px) {
+            .upload-card {
+                grid-column: span 1;
+            }
+        }
+
+        .drop-zone {
+            border: 1.5px dashed var(--border2);
+            border-radius: 10px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .3s;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: var(--green);
+            background: rgba(0, 229, 160, .04);
+            box-shadow: var(--glow-g);
+        }
+
+        .drop-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            border: 1.5px solid var(--border2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .3s;
+        }
+
+        .drop-zone:hover .drop-icon {
+            border-color: var(--green);
+            box-shadow: var(--glow-g);
+        }
+
+        .drop-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .drop-sub {
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .file-chosen {
+            margin-top: 16px;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--green);
+            display: none;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .stat-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .stat-val {
+            font-family: var(--mono);
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--blue);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 4px;
+            display: block;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .step {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .step-num {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--green);
+            background: rgba(0, 229, 160, .08);
+            border: 1px solid rgba(0, 229, 160, .2);
+            border-radius: 6px;
+            width: 26px;
+            height: 26px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .step-text {
+            font-size: 13px;
+            color: var(--text-dim);
+            padding-top: 3px;
+        }
+
+        .step-text strong {
+            color: var(--text);
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .btn-analyze {
+            width: 100%;
+            padding: 16px;
+            background: var(--green);
+            color: #080d12;
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all .3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 24px;
+        }
+
+        .btn-analyze:hover:not(:disabled) {
+            background: #00ffb3;
+            box-shadow: var(--glow-g);
+            transform: translateY(-1px);
+        }
+
+        .btn-analyze:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        /* PDF button */
+        .btn-pdf {
+            width: 100%;
+            padding: 14px;
+            background: transparent;
+            color: var(--blue);
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            border: 1.5px solid var(--blue);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all .3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn-pdf:hover {
+            background: rgba(56, 189, 248, .1);
+            box-shadow: 0 0 20px rgba(56, 189, 248, .2);
+            transform: translateY(-1px);
+        }
+
+        .loader-wrap {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border2);
+            border-top-color: var(--green);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #result-panel {
+            display: none;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-top: 24px;
+            animation: fadeUp .5s ease;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-header {
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .result-badge {
+            font-family: var(--mono);
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .result-conf {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .result-body {
+            padding: 24px 28px;
+        }
+
+        .result-meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 600px) {
+            .result-meta {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .meta-item {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .meta-val {
+            font-family: var(--mono);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--blue);
+            display: block;
+        }
+
+        .meta-key {
+            font-size: 10px;
+            color: var(--text-dim);
+            display: block;
+            margin-top: 4px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .chart-wrap {
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .chart-wrap img {
+            width: 100%;
+            display: block;
+        }
+
+        .disclaimer {
+            margin-top: 48px;
+            padding: 16px 20px;
+            background: rgba(255, 79, 110, .05);
+            border: 1px solid rgba(255, 79, 110, .15);
+            border-radius: 10px;
+            font-size: 12px;
+            color: var(--text-dim);
+            text-align: center;
+        }
+
+        .disclaimer strong {
+            color: var(--red);
+        }
+
+        #error-toast {
+            display: none;
+            margin-top: 16px;
+            padding: 14px 18px;
+            background: rgba(255, 79, 110, .08);
+            border: 1px solid rgba(255, 79, 110, .3);
+            border-radius: 8px;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--red);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#00e5a0" stroke-width="1.5">
+                    <path d="M3 12h2l2-6 3 12 2-9 2 6h2l2-3h3" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </div>
+            <span class="logo-text">Neuro<span>Scan</span> AI</span>
+        </div>
+        <div class="status-pill {% if model_ready %}online{% else %}offline{% endif %}" id="status-pill">
+            <div class="status-dot"></div>
+            <span id="status-label">{% if model_ready %}MODEL READY{% else %}NO MODEL{% endif %}</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="hero">
+            <p class="hero-eyebrow">CNN-Powered Neurological Analysis</p>
+            <h1>EEG Brain Signal<br><em>Classification</em></h1>
+            <p>Upload an EEG recording and our deep learning model will analyze the signal patterns to detect
+                neurological abnormalities.</p>
+            <div class="wave-wrap">
+                <svg class="wave-svg" viewBox="0 0 1200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polyline points="0,30 30,30 45,10 60,50 75,20 90,40 105,30 135,30
+                  150,30 160,12 170,48 180,28 190,32 205,30
+                  230,30 255,5  270,55 285,18 300,42 315,30
+                  340,30 355,22 370,38 385,26 400,34 415,30
+                  440,30 455,8  470,52 485,22 500,38 515,30
+                  540,30 555,14 570,46 585,24 600,36 615,30
+                  640,30 650,30 665,10 680,50 695,20 710,40 725,30 755,30
+                  770,30 780,12 790,48 800,28 810,32 825,30
+                  850,30 875,5  890,55 905,18 920,42 935,30
+                  960,30 975,22 990,38 1005,26 1020,34 1035,30
+                  1060,30 1075,8 1090,52 1105,22 1120,38 1135,30
+                  1160,30 1175,14 1190,46 1200,30" stroke="#00e5a0" stroke-width="1.5" stroke-linecap="round"
+                        stroke-linejoin="round" opacity=".7" />
+                </svg>
+            </div>
+        </div>
+
+        <div class="cards">
+            <div class="card upload-card">
+                <div class="card-label">// 01 — Upload EEG File</div>
+                <div class="drop-zone" id="drop-zone">
+                    <input type="file" id="file-input" accept=".txt,.csv,.eeg,.dat">
+                    <div class="drop-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5a7a9a" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <p class="drop-title">Drop EEG file here or click to browse</p>
+                    <p class="drop-sub">Supports .txt · .csv · .eeg · .dat — Bonn dataset format</p>
+                    <p class="file-chosen" id="file-chosen"></p>
+                </div>
+                <button class="btn-analyze" id="btn-analyze" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 8v4l3 3" stroke-linecap="round" />
+                    </svg>
+                    ANALYZE SIGNAL
+                </button>
+                <div class="loader-wrap" id="loader">
+                    <div class="spinner"></div>
+                    <span>Processing EEG signal…</span>
+                </div>
+                <div id="error-toast"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">// 02 — Model Metrics</div>
+                <div class="stat-grid">
+                    <div class="stat-box"><span class="stat-val" id="m-acc">—</span><span class="stat-label">Test
+                            Accuracy</span></div>
+                    <div class="stat-box"><span class="stat-val">CNN</span><span class="stat-label">Architecture</span>
+                    </div>
+                    <div class="stat-box"><span class="stat-val">1-D</span><span class="stat-label">Conv Type</span>
+                    </div>
+                    <div class="stat-box"><span class="stat-val">512</span><span class="stat-label">Window (pts)</span>
+                    </div>
+                    <div class="stat-box"><span class="stat-val">40Hz</span><span class="stat-label">Bandpass Hi</span>
+                    </div>
+                    <div class="stat-box"><span class="stat-val">Bonn</span><span class="stat-label">Dataset</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">// 03 — Pipeline</div>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-num">01</div>
+                        <div class="step-text"><strong>Bandpass Filter</strong>0.5 – 40 Hz noise removal</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">02</div>
+                        <div class="step-text"><strong>Z-Score Normalize</strong>Per-segment standardization</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">03</div>
+                        <div class="step-text"><strong>Sliding Window</strong>512-pt windows, 128-pt hop</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">04</div>
+                        <div class="step-text"><strong>1-D CNN Inference</strong>3x Conv → GAP → Dense</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">05</div>
+                        <div class="step-text"><strong>Majority Vote</strong>Average probability across windows</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result panel -->
+        <div id="result-panel">
+            <div class="result-header">
+                <div class="result-badge" id="result-badge">
+                    <div class="badge-dot" id="badge-dot"></div>
+                    <span id="result-label">—</span>
+                </div>
+                <div class="result-conf" id="result-conf">Confidence: —</div>
+            </div>
+            <div class="result-body">
+                <div class="result-meta">
+                    <div class="meta-item"><span class="meta-val" id="r-conf">—</span><span
+                            class="meta-key">Confidence</span></div>
+                    <div class="meta-item"><span class="meta-val" id="r-prob">—</span><span
+                            class="meta-key">Probability</span></div>
+                    <div class="meta-item"><span class="meta-val" id="r-seg">—</span><span
+                            class="meta-key">Segments</span></div>
+                    <div class="meta-item"><span class="meta-val" id="r-samp">—</span><span
+                            class="meta-key">Samples</span></div>
+                </div>
+                <div class="chart-wrap" id="chart-wrap"></div>
+
+                <!-- PDF Download Button -->
+                <button class="btn-pdf" id="btn-pdf">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linecap="round" />
+                        <polyline points="14,2 14,8 20,8" stroke-linecap="round" />
+                        <line x1="12" y1="18" x2="12" y2="12" stroke-linecap="round" />
+                        <polyline points="9,15 12,18 15,15" stroke-linecap="round" />
+                    </svg>
+                    DOWNLOAD PDF REPORT
+                </button>
+            </div>
+        </div>
+
+        <div class="disclaimer">
+            <strong>Medical Disclaimer:</strong> This tool is for research and educational purposes only.
+            It is <strong>not a substitute for clinical diagnosis</strong> by a qualified neurologist.
+            Always consult a healthcare professional for medical decisions.
+        </div>
+    </main>
+
+    <script>
+        // ── Status ────────────────────────────────────────────────────────────────────
+        fetch("/status").then(r => r.json()).then(d => {
+            const pill = document.getElementById("status-pill");
+            const label = document.getElementById("status-label");
+            const mAcc = document.getElementById("m-acc");
+            if (d.model_loaded) {
+                pill.className = "status-pill online";
+                label.textContent = "MODEL READY";
+                mAcc.textContent = d.model_accuracy !== "N/A" ? d.model_accuracy + "%" : "—";
+            } else {
+                pill.className = "status-pill offline";
+                label.textContent = "NO MODEL";
+            }
+        }).catch(() => { });
+
+        // ── Drop zone ────────────────────────────────────────────────────────────────
+        const dropZone = document.getElementById("drop-zone");
+        const fileInput = document.getElementById("file-input");
+        const fileChosen = document.getElementById("file-chosen");
+        const btnAnalyze = document.getElementById("btn-analyze");
+        let selectedFile = null;
+        let lastResult = null;
+
+        dropZone.addEventListener("click", () => fileInput.click());
+        dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+        dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+        dropZone.addEventListener("drop", e => { e.preventDefault(); dropZone.classList.remove("drag-over"); if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+        fileInput.addEventListener("change", () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+        function setFile(f) {
+            selectedFile = f;
+            fileChosen.textContent = `✔ ${f.name}  (${(f.size / 1024).toFixed(1)} KB)`;
+            fileChosen.style.display = "block";
+            btnAnalyze.disabled = false;
+        }
+
+        // ── Analyze ───────────────────────────────────────────────────────────────────
+        btnAnalyze.addEventListener("click", async () => {
+            if (!selectedFile) return;
+            const loader = document.getElementById("loader");
+            const error = document.getElementById("error-toast");
+            const result = document.getElementById("result-panel");
+
+            btnAnalyze.disabled = true;
+            loader.style.display = "flex";
+            error.style.display = "none";
+            result.style.display = "none";
+
+            const fd = new FormData();
+            fd.append("file", selectedFile);
+
+            try {
+                const resp = await fetch("/predict", { method: "POST", body: fd });
+                const data = await resp.json();
+                if (!resp.ok || data.error) { showError(data.error || "Unknown error"); return; }
+                lastResult = { ...data, filename: selectedFile.name };
+                showResult(data);
+            } catch (e) {
+                showError("Network error — is Flask running?");
+            } finally {
+                loader.style.display = "none";
+                btnAnalyze.disabled = false;
+            }
+        });
+
+        function showError(msg) {
+            const el = document.getElementById("error-toast");
+            el.textContent = "⚠ " + msg;
+            el.style.display = "block";
+        }
+
+        function showResult(d) {
+            const isAbnormal = d.prediction === "Abnormal";
+            const color = isAbnormal ? "#ff4f6e" : "#00e5a0";
+            document.getElementById("result-badge").style.color = color;
+            document.getElementById("badge-dot").style.background = color;
+            document.getElementById("result-label").textContent = d.prediction.toUpperCase();
+            document.getElementById("result-conf").textContent = `Confidence: ${d.confidence}%`;
+            document.getElementById("r-conf").textContent = d.confidence + "%";
+            document.getElementById("r-prob").textContent = d.probability;
+            document.getElementById("r-seg").textContent = d.segments;
+            document.getElementById("r-samp").textContent = d.samples;
+            document.getElementById("chart-wrap").innerHTML = `<img id="eeg-chart" src="data:image/png;base64,${d.chart}" alt="EEG signal chart">`;
+            const panel = document.getElementById("result-panel");
+            panel.style.display = "block";
+            panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        // ── PDF Export ────────────────────────────────────────────────────────────────
+        document.getElementById("btn-pdf").addEventListener("click", () => {
+            if (!lastResult) return;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+            const pageW = 210;
+            const margin = 20;
+            const contentW = pageW - margin * 2;
+
+            // ── Background ──
+            doc.setFillColor(8, 13, 18);
+            doc.rect(0, 0, 210, 297, "F");
+
+            // ── Header bar ──
+            doc.setFillColor(13, 21, 32);
+            doc.rect(0, 0, 210, 22, "F");
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(13);
+            doc.setTextColor(0, 229, 160);
+            doc.text("NeuroScan AI", margin, 14);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(90, 122, 154);
+            doc.text("EEG Brain Signal Classification Report", margin, 19);
+
+            // Date top right
+            const now = new Date();
+            const dateStr = now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+            const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+            doc.setFontSize(8);
+            doc.setTextColor(90, 122, 154);
+            doc.text(`${dateStr}  ${timeStr}`, pageW - margin, 14, { align: "right" });
+
+            // ── Divider ──
+            doc.setDrawColor(30, 48, 72);
+            doc.setLineWidth(0.3);
+            doc.line(margin, 26, pageW - margin, 26);
+
+            // ── Result badge ──
+            let y = 36;
+            const isAbnormal = lastResult.prediction === "Abnormal";
+            const badgeColor = isAbnormal ? [255, 79, 110] : [0, 229, 160];
+
+            // Dot
+            doc.setFillColor(...badgeColor);
+            doc.circle(margin + 3, y - 1, 2.5, "F");
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.setTextColor(...badgeColor);
+            doc.text(lastResult.prediction.toUpperCase(), margin + 9, y);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(90, 122, 154);
+            doc.text(`Confidence: ${lastResult.confidence}%`, margin + 9, y + 7);
+
+            // ── File info ──
+            doc.setFontSize(8);
+            doc.setTextColor(90, 122, 154);
+            doc.text(`File: ${lastResult.filename}`, pageW - margin, y, { align: "right" });
+
+            // ── Stats boxes ──
+            y += 20;
+            const stats = [
+                { label: "CONFIDENCE", value: lastResult.confidence + "%" },
+                { label: "PROBABILITY", value: lastResult.probability },
+                { label: "SEGMENTS", value: lastResult.segments },
+                { label: "SAMPLES", value: lastResult.samples },
+            ];
+
+            const boxW = (contentW - 9) / 4;
+            stats.forEach((s, i) => {
+                const bx = margin + i * (boxW + 3);
+                doc.setFillColor(17, 29, 43);
+                doc.setDrawColor(30, 48, 72);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(bx, y, boxW, 18, 2, 2, "FD");
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(56, 189, 248);
+                doc.text(String(s.value), bx + boxW / 2, y + 8, { align: "center" });
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(7);
+                doc.setTextColor(90, 122, 154);
+                doc.text(s.label, bx + boxW / 2, y + 14, { align: "center" });
+            });
+
+            // ── EEG Chart ──
+            y += 26;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(200, 216, 232);
+            doc.text("EEG SIGNAL ANALYSIS", margin, y);
+
+            doc.setDrawColor(30, 48, 72);
+            doc.line(margin, y + 2, pageW - margin, y + 2);
+
+            y += 7;
+            const chartImg = document.getElementById("eeg-chart");
+            if (chartImg) {
+                const imgData = "data:image/png;base64," + lastResult.chart;
+                doc.addImage(imgData, "PNG", margin, y, contentW, 70);
+                y += 75;
+            }
+
+            // ── Analysis Summary ──
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(200, 216, 232);
+            doc.text("ANALYSIS SUMMARY", margin, y);
+            doc.setDrawColor(30, 48, 72);
+            doc.line(margin, y + 2, pageW - margin, y + 2);
+            y += 9;
+
+            const summaryLines = [
+                ["Classification Result", lastResult.prediction],
+                ["Confidence Score", lastResult.confidence + "%"],
+                ["Abnormality Probability", (lastResult.probability * 100).toFixed(2) + "%"],
+                ["Signal Windows Analyzed", lastResult.segments + " windows"],
+                ["Total Signal Samples", lastResult.samples + " samples"],
+                ["Model Architecture", "1-D CNN (3x Conv + GAP + Dense)"],
+                ["Model Test Accuracy", lastResult.model_acc + "%"],
+                ["Dataset", "Bonn University EEG Dataset"],
+                ["Signal Filter", "Bandpass 0.5 – 40 Hz"],
+            ];
+
+            summaryLines.forEach(([key, val], i) => {
+                const rowY = y + i * 8;
+                if (i % 2 === 0) {
+                    doc.setFillColor(13, 21, 32);
+                    doc.rect(margin, rowY - 4, contentW, 8, "F");
+                }
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8);
+                doc.setTextColor(90, 122, 154);
+                doc.text(key, margin + 3, rowY);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(200, 216, 232);
+                doc.text(val, pageW - margin - 3, rowY, { align: "right" });
+            });
+
+            y += summaryLines.length * 8 + 8;
+
+            // ── Disclaimer ──
+            doc.setFillColor(40, 10, 15);
+            doc.setDrawColor(80, 20, 30);
+            doc.roundedRect(margin, y, contentW, 16, 2, 2, "FD");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(255, 79, 110);
+            doc.text("MEDICAL DISCLAIMER", margin + 4, y + 6);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(150, 100, 110);
+            doc.text("This report is for research and educational purposes only. Not a substitute for clinical diagnosis.", margin + 4, y + 12);
+
+            // ── Footer ──
+            doc.setDrawColor(30, 48, 72);
+            doc.line(margin, 285, pageW - margin, 285);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            doc.setTextColor(90, 122, 154);
+            doc.text("Generated by NeuroScan AI  •  AI-Based EEG Brain Signal Classification", margin, 291);
+            doc.text("Page 1 of 1", pageW - margin, 291, { align: "right" });
+
+            // ── Save ──
+            const filename = `EEG_Report_${lastResult.prediction}_${Date.now()}.pdf`;
+            doc.save(filename);
+        });
+    </script>
+</body>
+
+</html>
