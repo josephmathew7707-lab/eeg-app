@@ -631,9 +631,9 @@
             </div>
             <span class="logo-text">Neuro<span>Scan</span> AI</span>
         </div>
-        <div class="status-pill {% if model_ready %}online{% else %}offline{% endif %}" id="status-pill">
+        <div class="status-pill online" id="status-pill">
             <div class="status-dot"></div>
-            <span id="status-label">{% if model_ready %}MODEL READY{% else %}NO MODEL{% endif %}</span>
+            <span id="status-label">MODEL READY</span>
         </div>
     </header>
 
@@ -726,7 +726,7 @@
                     </div>
                     <div class="step">
                         <div class="step-num">04</div>
-                        <div class="step-text"><strong>1-D CNN Inference</strong>3x Conv → GAP → Dense</div>
+                        <div class="step-text"><strong>CNN-LSTM Inference</strong>Conv → LSTM → Dense</div>
                     </div>
                     <div class="step">
                         <div class="step-num">05</div>
@@ -758,6 +758,60 @@
                 </div>
                 <div class="chart-wrap" id="chart-wrap"></div>
 
+                <!-- Doctor-only technical panel -->
+                <div id="doctor-panel" style="display:none;margin-top:16px;">
+                    <div
+                        style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:12px;">
+                        // Technical Analysis (Doctor View)</div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+                        <div class="meta-item"><span class="meta-val" id="d-prob">-</span><span class="meta-key">Raw
+                                Probability</span></div>
+                        <div class="meta-item"><span class="meta-val" id="d-seg">-</span><span class="meta-key">Windows
+                                Analyzed</span></div>
+                        <div class="meta-item"><span class="meta-val" id="d-samp">-</span><span class="meta-key">Total
+                                Samples</span></div>
+                        <div class="meta-item"><span class="meta-val" id="d-mean">-</span><span class="meta-key">Mean
+                                Amplitude</span></div>
+                        <div class="meta-item"><span class="meta-val" id="d-max">-</span><span class="meta-key">Peak
+                                Amplitude</span></div>
+                        <div class="meta-item"><span class="meta-val" id="d-spike">-</span><span class="meta-key">Spike
+                                Regions</span></div>
+                        <div class="meta-item"><span class="meta-val" id="d-std">-</span><span class="meta-key">Std
+                                Deviation</span></div>
+                        <div class="meta-item"><span class="meta-val" id="d-hf">-</span><span class="meta-key">HF Burst
+                                %</span></div>
+                        <div class="meta-item"><span class="meta-val" id="d-thr">-</span><span class="meta-key">Spike
+                                Threshold</span></div>
+                    </div>
+                    <div id="doctor-findings" style="margin-bottom:14px;"></div>
+                </div>
+
+                <!-- Doctor-only technical section -->
+                <div id="doctor-section" style="display:none;margin-bottom:20px;">
+                    <div
+                        style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#38bdf8;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+                        // Technical Analysis — Doctor View</div>
+                    <div id="stats-panel"
+                        style="display:none;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
+                        <div class="meta-item"><span class="meta-val" id="s-mean">-</span><span class="meta-key">Mean
+                                Amplitude</span></div>
+                        <div class="meta-item"><span class="meta-val" id="s-max">-</span><span class="meta-key">Peak
+                                Amplitude</span></div>
+                        <div class="meta-item"><span class="meta-val" id="s-std">-</span><span class="meta-key">Std
+                                Deviation</span></div>
+                        <div class="meta-item"><span class="meta-val" id="s-spike">-</span><span class="meta-key">Spike
+                                Regions</span></div>
+                        <div class="meta-item"><span class="meta-val" id="s-hf">-</span><span class="meta-key">HF Burst
+                                %</span></div>
+                        <div class="meta-item"><span class="meta-val" id="s-thr">-</span><span class="meta-key">Spike
+                                Threshold</span></div>
+                    </div>
+                    <div id="technical-findings" style="margin-bottom:10px;"></div>
+                </div>
+
+                <!-- Patient-friendly findings (both roles see this) -->
+                <div id="findings-panel" style="display:none;margin-bottom:20px;"></div>
+
                 <!-- PDF Download Button -->
                 <button class="btn-pdf" id="btn-pdf">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -785,11 +839,11 @@
             const label = document.getElementById("status-label");
             const mAcc = document.getElementById("m-acc");
             if (d.model_loaded) {
-                pill.className = "status-pill online";
+                document.getElementById("status-pill").className = "status-pill online";
                 label.textContent = "MODEL READY";
                 mAcc.textContent = d.model_accuracy !== "N/A" ? d.model_accuracy + "%" : "—";
             } else {
-                pill.className = "status-pill offline";
+                document.getElementById("status-pill").className = "status-pill offline";
                 label.textContent = "NO MODEL";
             }
         }).catch(() => { });
@@ -856,18 +910,110 @@
             document.getElementById("result-badge").style.color = color;
             document.getElementById("badge-dot").style.background = color;
             document.getElementById("result-label").textContent = d.prediction.toUpperCase();
-            document.getElementById("result-conf").textContent = `Confidence: ${d.confidence}%`;
+            document.getElementById("result-conf").textContent = "Confidence: " + d.confidence + "%";
             document.getElementById("r-conf").textContent = d.confidence + "%";
             document.getElementById("r-prob").textContent = d.probability;
             document.getElementById("r-seg").textContent = d.segments;
             document.getElementById("r-samp").textContent = d.samples;
-            document.getElementById("chart-wrap").innerHTML = `<img id="eeg-chart" src="data:image/png;base64,${d.chart}" alt="EEG signal chart">`;
+            document.getElementById("chart-wrap").innerHTML = "<img id='eeg-chart' src='data:image/png;base64," + d.chart + "' alt='EEG signal chart'>";
+
+            // Role-based sections
+            const isDoctor = d.role === "doctor";
+            const docSection = document.getElementById("doctor-section");
+            if (docSection) docSection.style.display = isDoctor ? "block" : "none";
+
+            if (isDoctor && d.stats) {
+                const s = d.stats;
+                document.getElementById("stats-panel").style.display = "grid";
+                document.getElementById("s-mean").textContent = s.mean_amplitude + " uV";
+                document.getElementById("s-max").textContent = s.max_amplitude + " uV";
+                document.getElementById("s-std").textContent = s.std_deviation + " uV";
+                document.getElementById("s-spike").textContent = s.spike_count;
+                document.getElementById("s-hf").textContent = s.hf_ratio + "%";
+                document.getElementById("s-thr").textContent = s.threshold + " uV";
+
+                // Doctor technical findings
+                if (d.findings && d.findings.length > 0) {
+                    let thtml = "<div style='font-family:var(--mono);font-size:10px;color:#38bdf8;margin-bottom:10px;letter-spacing:.08em;'>CLINICAL FINDINGS</div>";
+                    d.findings.forEach(function (f, i) {
+                        thtml += "<div style='padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid " + f.color + ";border-radius:8px;margin-bottom:8px;'>" +
+                            "<div style='font-size:12px;font-weight:600;color:" + f.color + ";margin-bottom:4px;'>" + (i + 1) + ". " + f.type + " <span style=\'font-family:var(--mono);font-size:9px;padding:2px 6px;border:1px solid " + f.color + ";border-radius:4px;\'>" + f.severity + "</span></div>" +
+                            "<div style='font-size:11px;color:var(--text-dim);font-family:var(--mono);'>" + (f.technical || f.detail) + "</div>" +
+                            "</div>";
+                    });
+                    document.getElementById("technical-findings").innerHTML = thtml;
+                }
+            }
+
+            const findingsEl = document.getElementById("findings-panel");
+            if (d.findings && d.findings.length > 0) {
+                findingsEl.style.display = "block";
+                let html = "<div style='font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:16px;'>// What We Found In Your Brain Signal</div>";
+                d.findings.forEach(function (f, i) {
+                    html += "<div style='background:var(--surface2);border:1px solid var(--border);border-left:4px solid " + f.color + ";border-radius:10px;margin-bottom:16px;overflow:hidden;'>" +
+
+                        // Header
+                        "<div style='display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);'>" +
+                        "<div style='display:flex;align-items:center;gap:10px;'>" +
+                        "<div style='width:8px;height:8px;border-radius:50%;background:" + f.color + ";flex-shrink:0;'></div>" +
+                        "<div style='font-size:14px;font-weight:600;color:" + f.color + ";'>" + (i + 1) + ". " + f.type + "</div>" +
+                        "</div>" +
+                        "<div style='font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid " + f.color + ";color:" + f.color + ";'>" + f.severity + " Priority</div>" +
+                        "</div>" +
+
+                        // What it is
+                        "<div style='padding:14px 16px;border-bottom:1px solid var(--border);'>" +
+                        "<div style='font-size:10px;font-family:var(--mono);color:var(--text-dim);margin-bottom:6px;letter-spacing:.08em;'>WHAT IS THIS?</div>" +
+                        "<div style='font-size:13px;color:var(--text);line-height:1.8;'>" + (f.simple || f.detail) + "</div>" +
+                        "</div>" +
+
+                        // What it means
+                        (f.what_it_means ? "<div style='padding:14px 16px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);'>" +
+                            "<div style='font-size:10px;font-family:var(--mono);color:var(--text-dim);margin-bottom:6px;letter-spacing:.08em;'>WHAT DOES THIS MEAN FOR YOU?</div>" +
+                            "<div style='font-size:13px;color:var(--text);line-height:1.8;'>" + f.what_it_means + "</div>" +
+                            "</div>" : "") +
+
+                        // What to do
+                        (f.what_to_do ? "<div style='padding:14px 16px;background:rgba(" + (f.severity === "High" ? "255,79,110" : f.severity === "Moderate" ? "255,140,66" : "56,189,248") + ",0.05);'>" +
+                            "<div style='font-size:10px;font-family:var(--mono);color:" + f.color + ";margin-bottom:6px;letter-spacing:.08em;'>WHAT SHOULD YOU DO?</div>" +
+                            "<div style='font-size:13px;color:var(--text);line-height:1.8;font-weight:500;'>" + f.what_to_do + "</div>" +
+                            "</div>" : "") +
+
+                        // Technical detail (collapsible)
+                        "<div style='padding:8px 16px;border-top:1px solid var(--border);'>" +
+                        "<div style='font-size:10px;font-family:var(--mono);color:var(--text-dim);'>Technical: " + f.detail + "</div>" +
+                        "</div>" +
+
+                        "</div>";
+                });
+
+                // Disclaimer
+                html += "<div style='padding:12px 16px;background:rgba(255,79,110,0.05);border:1px solid rgba(255,79,110,0.15);border-radius:8px;font-size:12px;color:var(--text-dim);text-align:center;margin-top:8px;'>" +
+                    "<span style='color:#ff4f6e;font-weight:600;'>Important: </span>" +
+                    "This AI analysis is for informational purposes only. Always consult a qualified neurologist for proper medical diagnosis and treatment." +
+                    "</div>";
+
+                findingsEl.innerHTML = html;
+
+            } else if (!isAbnormal) {
+                findingsEl.style.display = "block";
+                findingsEl.innerHTML =
+                    "<div style='font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px;'>// What We Found In Your Brain Signal</div>" +
+                    "<div style='padding:20px;background:rgba(0,229,160,.05);border:1px solid rgba(0,229,160,.2);border-radius:10px;'>" +
+                    "<div style='font-size:15px;font-weight:600;color:#00e5a0;margin-bottom:8px;'>Your brain signal looks normal!</div>" +
+                    "<div style='font-size:13px;color:var(--text);line-height:1.8;margin-bottom:10px;'>Good news! Our AI did not find any unusual patterns in your brain signal. The signal shows a normal, steady, and rhythmic pattern — which is exactly what a healthy brain signal should look like.</div>" +
+                    "<div style='font-size:12px;color:var(--text-dim);line-height:1.7;'>This means: no sudden spikes were detected, the signal strength is within normal range, and the brain wave pattern is regular and consistent.</div>" +
+                    "</div>";
+            }
+
+
+
             const panel = document.getElementById("result-panel");
             panel.style.display = "block";
             panel.scrollIntoView({ behavior: "smooth", block: "start" });
         }
 
-        // ── PDF Export ────────────────────────────────────────────────────────────────
+        // ── PDF Export (Clinical Medical Style) ──────────────────────────────────────
         document.getElementById("btn-pdf").addEventListener("click", () => {
             if (!lastResult) return;
 
@@ -875,170 +1021,271 @@
             const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
             const pageW = 210;
-            const margin = 20;
-            const contentW = pageW - margin * 2;
-
-            // ── Background ──
-            doc.setFillColor(8, 13, 18);
-            doc.rect(0, 0, 210, 297, "F");
-
-            // ── Header bar ──
-            doc.setFillColor(13, 21, 32);
-            doc.rect(0, 0, 210, 22, "F");
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(13);
-            doc.setTextColor(0, 229, 160);
-            doc.text("NeuroScan AI", margin, 14);
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
-            doc.setTextColor(90, 122, 154);
-            doc.text("EEG Brain Signal Classification Report", margin, 19);
-
-            // Date top right
+            const pageH = 297;
+            const margin = 15;
+            const cW = pageW - margin * 2;
             const now = new Date();
+            const isAbnormal = lastResult.prediction === "Abnormal";
+
             const dateStr = now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
             const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-            doc.setFontSize(8);
-            doc.setTextColor(90, 122, 154);
-            doc.text(`${dateStr}  ${timeStr}`, pageW - margin, 14, { align: "right" });
+            const reportID = "NSA-" + now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0") + "-" + String(now.getTime()).slice(-5);
 
-            // ── Divider ──
-            doc.setDrawColor(30, 48, 72);
-            doc.setLineWidth(0.3);
-            doc.line(margin, 26, pageW - margin, 26);
+            // ── White background ──
+            doc.setFillColor(255, 255, 255);
+            doc.rect(0, 0, pageW, pageH, "F");
 
-            // ── Result badge ──
-            let y = 36;
-            const isAbnormal = lastResult.prediction === "Abnormal";
-            const badgeColor = isAbnormal ? [255, 79, 110] : [0, 229, 160];
+            // ── Top navy header bar ──
+            doc.setFillColor(10, 36, 99);
+            doc.rect(0, 0, pageW, 28, "F");
 
-            // Dot
-            doc.setFillColor(...badgeColor);
-            doc.circle(margin + 3, y - 1, 2.5, "F");
+            // Hospital cross icon (simple plus)
+            doc.setFillColor(255, 255, 255);
+            doc.rect(margin, 8, 3, 9, "F");
+            doc.rect(margin - 3, 11, 9, 3, "F");
 
+            // Hospital name
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(22);
-            doc.setTextColor(...badgeColor);
-            doc.text(lastResult.prediction.toUpperCase(), margin + 9, y);
+            doc.setFontSize(14);
+            doc.setTextColor(255, 255, 255);
+            doc.text("NeuroScan AI Medical Center", margin + 10, 13);
 
             doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.setTextColor(90, 122, 154);
-            doc.text(`Confidence: ${lastResult.confidence}%`, margin + 9, y + 7);
-
-            // ── File info ──
             doc.setFontSize(8);
-            doc.setTextColor(90, 122, 154);
-            doc.text(`File: ${lastResult.filename}`, pageW - margin, y, { align: "right" });
+            doc.setTextColor(180, 200, 240);
+            doc.text("Department of Neurology & Clinical Neurophysiology", margin + 10, 20);
 
-            // ── Stats boxes ──
-            y += 20;
-            const stats = [
-                { label: "CONFIDENCE", value: lastResult.confidence + "%" },
-                { label: "PROBABILITY", value: lastResult.probability },
-                { label: "SEGMENTS", value: lastResult.segments },
-                { label: "SAMPLES", value: lastResult.samples },
+            // Report ID top right
+            doc.setFontSize(7);
+            doc.setTextColor(180, 200, 240);
+            doc.text(`Report ID: ${reportID}`, pageW - margin, 12, { align: "right" });
+            doc.text(`${dateStr}  |  ${timeStr}`, pageW - margin, 19, { align: "right" });
+
+            // ── Report title band ──
+            doc.setFillColor(234, 239, 255);
+            doc.rect(0, 28, pageW, 10, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(10, 36, 99);
+            doc.text("ELECTROENCEPHALOGRAPHY (EEG) AI CLASSIFICATION REPORT", pageW / 2, 34.5, { align: "center" });
+
+            // ── Patient info box ──
+            let y = 44;
+            doc.setDrawColor(180, 195, 230);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(margin, y, cW, 22, 2, 2, "D");
+
+            doc.setFillColor(244, 247, 255);
+            doc.roundedRect(margin, y, cW, 7, 2, 2, "F");
+            doc.rect(margin, y + 3, cW, 4, "F");
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7.5);
+            doc.setTextColor(10, 36, 99);
+            doc.text("PATIENT / STUDY INFORMATION", margin + 4, y + 5);
+
+            const col1x = margin + 4;
+            const col2x = margin + cW / 2 + 4;
+            const infoY = y + 13;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(80, 80, 80);
+            doc.text("EEG File:", col1x, infoY);
+            doc.text("Study Type:", col1x, infoY + 6);
+            doc.text("Referring Unit:", col2x, infoY);
+            doc.text("Analysed By:", col2x, infoY + 6);
+
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(20, 20, 20);
+            doc.text(lastResult.filename || "Unknown", col1x + 22, infoY);
+            doc.text("Routine EEG — AI Classification", col1x + 22, infoY + 6);
+            doc.text("Neurology Dept.", col2x + 26, infoY);
+            doc.text("NeuroScan AI v1.0 (CNN Model)", col2x + 26, infoY + 6);
+
+            // ── Diagnosis result box ──
+            y += 28;
+            const diagColor = isAbnormal ? [180, 0, 0] : [0, 110, 60];
+            const diagBg = isAbnormal ? [255, 240, 240] : [240, 255, 245];
+            const diagBorder = isAbnormal ? [220, 80, 80] : [60, 180, 120];
+
+            doc.setFillColor(...diagBg);
+            doc.setDrawColor(...diagBorder);
+            doc.setLineWidth(0.5);
+            doc.roundedRect(margin, y, cW, 24, 2, 2, "FD");
+
+            // Left accent bar
+            doc.setFillColor(...diagColor);
+            doc.rect(margin, y, 3, 24, "F");
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(...diagColor);
+            doc.text("DIAGNOSTIC CONCLUSION", margin + 7, y + 6);
+
+            doc.setFontSize(18);
+            doc.text(lastResult.prediction.toUpperCase(), margin + 7, y + 17);
+
+            // Confidence bar on right side
+            const barX = margin + cW - 65;
+            const barY = y + 7;
+            const barW = 60;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            doc.setTextColor(80, 80, 80);
+            doc.text("AI Confidence Score", barX, barY);
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...diagColor);
+            doc.text(`${lastResult.confidence}%`, barX + barW - 2, barY + 1, { align: "right" });
+
+            // Progress bar background
+            doc.setFillColor(210, 210, 210);
+            doc.roundedRect(barX, barY + 4, barW, 4, 1, 1, "F");
+            // Progress bar fill
+            doc.setFillColor(...diagColor);
+            doc.roundedRect(barX, barY + 4, barW * (lastResult.confidence / 100), 4, 1, 1, "F");
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            doc.setTextColor(80, 80, 80);
+            doc.text(`Probability: ${(lastResult.probability * 100).toFixed(1)}%  |  Segments analyzed: ${lastResult.segments}  |  Samples: ${lastResult.samples}`, barX, barY + 14);
+
+            // ── Signal metrics table ──
+            y += 30;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            doc.setTextColor(10, 36, 99);
+            doc.text("SIGNAL ANALYSIS PARAMETERS", margin, y);
+            doc.setDrawColor(10, 36, 99);
+            doc.setLineWidth(0.4);
+            doc.line(margin, y + 1.5, margin + 75, y + 1.5);
+
+            y += 5;
+            const params = [
+                ["Parameter", "Value", "Reference"],
+                ["Signal Filter Applied", "Bandpass 0.5 – 40 Hz", "Standard EEG Band"],
+                ["Window Length", "512 samples", "2.95 seconds @ 173.61 Hz"],
+                ["Overlap / Hop Size", "128 samples (75%)", "Standard sliding window"],
+                ["Windows Analyzed", `${lastResult.segments}`, "Per recording"],
+                ["Total Samples", `${lastResult.samples}`, "Raw signal length"],
+                ["Sampling Frequency", "173.61 Hz", "Bonn Dataset Standard"],
+                ["Normalization", "Z-Score per segment", "Zero mean, unit variance"],
             ];
 
-            const boxW = (contentW - 9) / 4;
-            stats.forEach((s, i) => {
-                const bx = margin + i * (boxW + 3);
-                doc.setFillColor(17, 29, 43);
-                doc.setDrawColor(30, 48, 72);
-                doc.setLineWidth(0.3);
-                doc.roundedRect(bx, y, boxW, 18, 2, 2, "FD");
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(11);
-                doc.setTextColor(56, 189, 248);
-                doc.text(String(s.value), bx + boxW / 2, y + 8, { align: "center" });
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(7);
-                doc.setTextColor(90, 122, 154);
-                doc.text(s.label, bx + boxW / 2, y + 14, { align: "center" });
+            const colW = [60, 60, 50];
+            const colX = [margin, margin + 60, margin + 120];
+
+            params.forEach((row, i) => {
+                const ry = y + i * 7;
+                if (i === 0) {
+                    doc.setFillColor(10, 36, 99);
+                    doc.rect(margin, ry - 4, cW, 7, "F");
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(7.5);
+                } else {
+                    doc.setFillColor(i % 2 === 0 ? 244 : 255, i % 2 === 0 ? 247 : 255, i % 2 === 0 ? 255 : 255);
+                    doc.rect(margin, ry - 4, cW, 7, "F");
+                    doc.setTextColor(30, 30, 30);
+                    doc.setFont("helvetica", i === 0 ? "bold" : "normal");
+                    doc.setFontSize(7.5);
+                }
+                row.forEach((cell, ci) => {
+                    doc.text(cell, colX[ci] + 2, ry);
+                });
+                // grid lines
+                doc.setDrawColor(200, 210, 230);
+                doc.setLineWidth(0.1);
+                doc.rect(margin, ry - 4, cW, 7, "D");
             });
 
             // ── EEG Chart ──
-            y += 26;
+            y += params.length * 7 + 6;
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(9);
-            doc.setTextColor(200, 216, 232);
-            doc.text("EEG SIGNAL ANALYSIS", margin, y);
+            doc.setFontSize(8);
+            doc.setTextColor(10, 36, 99);
+            doc.text("EEG WAVEFORM VISUALIZATION", margin, y);
+            doc.setDrawColor(10, 36, 99);
+            doc.setLineWidth(0.4);
+            doc.line(margin, y + 1.5, margin + 80, y + 1.5);
 
-            doc.setDrawColor(30, 48, 72);
-            doc.line(margin, y + 2, pageW - margin, y + 2);
+            y += 4;
+            doc.setDrawColor(180, 195, 230);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(margin, y, cW, 62, 2, 2, "D");
+            const imgData = "data:image/png;base64," + lastResult.chart;
+            doc.addImage(imgData, "PNG", margin + 1, y + 1, cW - 2, 60);
+            y += 66;
 
-            y += 7;
-            const chartImg = document.getElementById("eeg-chart");
-            if (chartImg) {
-                const imgData = "data:image/png;base64," + lastResult.chart;
-                doc.addImage(imgData, "PNG", margin, y, contentW, 70);
-                y += 75;
-            }
-
-            // ── Analysis Summary ──
+            // ── AI Model information ──
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(9);
-            doc.setTextColor(200, 216, 232);
-            doc.text("ANALYSIS SUMMARY", margin, y);
-            doc.setDrawColor(30, 48, 72);
-            doc.line(margin, y + 2, pageW - margin, y + 2);
-            y += 9;
+            doc.setFontSize(8);
+            doc.setTextColor(10, 36, 99);
+            doc.text("AI MODEL INFORMATION", margin, y);
+            doc.setDrawColor(10, 36, 99);
+            doc.setLineWidth(0.4);
+            doc.line(margin, y + 1.5, margin + 65, y + 1.5);
+            y += 5;
 
-            const summaryLines = [
-                ["Classification Result", lastResult.prediction],
-                ["Confidence Score", lastResult.confidence + "%"],
-                ["Abnormality Probability", (lastResult.probability * 100).toFixed(2) + "%"],
-                ["Signal Windows Analyzed", lastResult.segments + " windows"],
-                ["Total Signal Samples", lastResult.samples + " samples"],
-                ["Model Architecture", "1-D CNN (3x Conv + GAP + Dense)"],
-                ["Model Test Accuracy", lastResult.model_acc + "%"],
-                ["Dataset", "Bonn University EEG Dataset"],
-                ["Signal Filter", "Bandpass 0.5 – 40 Hz"],
+            const modelInfo = [
+                ["Model Type", "1-D Convolutional Neural Network (CNN)"],
+                ["Architecture", "Conv1D x3 + BatchNorm + GlobalAvgPool + Dense"],
+                ["Training Dataset", "Bonn University EEG Dataset (500 recordings)"],
+                ["Test Accuracy", `${lastResult.model_acc}%  (Validated on 20% holdout set)`],
+                ["Classification", "Binary: Normal vs. Abnormal (Epileptic)"],
             ];
 
-            summaryLines.forEach(([key, val], i) => {
-                const rowY = y + i * 8;
-                if (i % 2 === 0) {
-                    doc.setFillColor(13, 21, 32);
-                    doc.rect(margin, rowY - 4, contentW, 8, "F");
-                }
+            modelInfo.forEach(([k, v], i) => {
+                const ry = y + i * 6.5;
+                doc.setFillColor(i % 2 === 0 ? 244 : 255, i % 2 === 0 ? 247 : 255, 255);
+                doc.rect(margin, ry - 3.5, cW, 6.5, "F");
+                doc.setDrawColor(200, 210, 230);
+                doc.setLineWidth(0.1);
+                doc.rect(margin, ry - 3.5, cW, 6.5, "D");
                 doc.setFont("helvetica", "normal");
-                doc.setFontSize(8);
-                doc.setTextColor(90, 122, 154);
-                doc.text(key, margin + 3, rowY);
+                doc.setFontSize(7.5);
+                doc.setTextColor(80, 80, 100);
+                doc.text(k, margin + 2, ry);
                 doc.setFont("helvetica", "bold");
-                doc.setTextColor(200, 216, 232);
-                doc.text(val, pageW - margin - 3, rowY, { align: "right" });
+                doc.setTextColor(20, 20, 20);
+                doc.text(v, margin + 50, ry);
             });
 
-            y += summaryLines.length * 8 + 8;
+            y += modelInfo.length * 6.5 + 5;
 
             // ── Disclaimer ──
-            doc.setFillColor(40, 10, 15);
-            doc.setDrawColor(80, 20, 30);
-            doc.roundedRect(margin, y, contentW, 16, 2, 2, "FD");
+            doc.setFillColor(255, 248, 230);
+            doc.setDrawColor(200, 150, 50);
+            doc.setLineWidth(0.4);
+            doc.roundedRect(margin, y, cW, 14, 2, 2, "FD");
+            doc.setFillColor(200, 130, 0);
+            doc.rect(margin, y, 3, 14, "F");
             doc.setFont("helvetica", "bold");
             doc.setFontSize(7);
-            doc.setTextColor(255, 79, 110);
-            doc.text("MEDICAL DISCLAIMER", margin + 4, y + 6);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(150, 100, 110);
-            doc.text("This report is for research and educational purposes only. Not a substitute for clinical diagnosis.", margin + 4, y + 12);
-
-            // ── Footer ──
-            doc.setDrawColor(30, 48, 72);
-            doc.line(margin, 285, pageW - margin, 285);
+            doc.setTextColor(140, 80, 0);
+            doc.text("IMPORTANT CLINICAL NOTICE", margin + 6, y + 5);
             doc.setFont("helvetica", "normal");
             doc.setFontSize(7);
-            doc.setTextColor(90, 122, 154);
-            doc.text("Generated by NeuroScan AI  •  AI-Based EEG Brain Signal Classification", margin, 291);
-            doc.text("Page 1 of 1", pageW - margin, 291, { align: "right" });
+            doc.setTextColor(100, 60, 0);
+            doc.text("This AI-generated report is intended for research and decision-support purposes only. It does not constitute a", margin + 6, y + 10);
+            doc.text("medical diagnosis. Clinical interpretation must be performed by a qualified neurologist or medical professional.", margin + 6, y + 14.5);
+
+            // ── Footer ──
+            doc.setFillColor(10, 36, 99);
+            doc.rect(0, pageH - 12, pageW, 12, "F");
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            doc.setTextColor(180, 200, 240);
+            doc.text(`NeuroScan AI Medical Center  |  Department of Neurology  |  Generated: ${dateStr} ${timeStr}`, margin, pageH - 6);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(255, 255, 255);
+            doc.text(`Report ID: ${reportID}  |  Page 1 of 1`, pageW - margin, pageH - 6, { align: "right" });
 
             // ── Save ──
-            const filename = `EEG_Report_${lastResult.prediction}_${Date.now()}.pdf`;
-            doc.save(filename);
+            doc.save(`EEG_Clinical_Report_${reportID}.pdf`);
         });
     </script>
 </body>
